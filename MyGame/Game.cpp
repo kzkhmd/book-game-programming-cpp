@@ -2,9 +2,11 @@
 
 #include <algorithm>
 #include "Actor.h"
+#include "Asteroid.h"
 #include "BGSpriteComponent.h"
 #include "SDL/SDL_image.h"
 #include "Ship.h"
+#include "Ship2.h"
 #include "SpriteComponent.h"
 
 const int thickness = 15;
@@ -165,12 +167,27 @@ SDL_Texture* Game::GetTexture(const std::string& fileName)
 	return tex;
 }
 
+void Game::AddAsteroid(Asteroid* ast)
+{
+	mAsteroids.emplace_back(ast);
+}
+
+void Game::RemoveAsteroid(Asteroid* ast)
+{
+	auto iter = std::find(mAsteroids.begin(),
+		mAsteroids.end(), ast);
+	if (iter != mAsteroids.end())
+	{
+		mAsteroids.erase(iter);
+	}
+}
+
 void Game::LoadData()
 {
 	// Create player's ship
-	mShip = new Ship(this);
-	mShip->SetPosition(Vector2(100.0f, 384.0f));
-	mShip->SetScale(1.5f);
+	mShip = new Ship2(this);
+	mShip->SetPosition(Vector2(512.0f, 384.0f));
+	mShip->SetRotation(Math::PiOver2);
 
 	// Create actor for the background (this doesn't need a subclass)
 	Actor* temp = new Actor(this);
@@ -193,6 +210,13 @@ void Game::LoadData()
 	};
 	bg->SetBGTextures(bgtexs);
 	bg->SetScrollSpeed(-200.0f);
+
+	// Create asteroids
+	const int numAsteroids = 20;
+	for (int i = 0; i < numAsteroids; i++)
+	{
+		new Asteroid(this);
+	}
 }
 
 void Game::UnloadData()
@@ -231,7 +255,12 @@ void Game::ProcessInput()
 		mIsRunning = false;
 	}
 
-	mShip->ProcessKeyboard(state);
+	mUpdatingActors = true;
+	for (auto actor : mActors)
+	{
+		actor->ProcessInput(state);
+	}
+	mUpdatingActors = false;
 }
 
 void Game::UpdateGame()

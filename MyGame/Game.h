@@ -21,6 +21,10 @@ public:
 
 	SDL_Texture* GetTexture(const std::string& fileName);
 
+	void AddAsteroid(class Asteroid* ast);
+	void RemoveAsteroid(class Asteroid* ast);
+	std::vector<class Asteroid*>& GetAsteroids() { return mAsteroids; }
+
 private:
 	void LoadData();
 	void UnloadData();
@@ -40,5 +44,6 @@ private:
 	std::vector<class Actor*> mPendingActors;
 	std::vector<class SpriteComponent*> mSprites;
 
-	class Ship* mShip;
+	class Ship2* mShip;
+	std::vector<class Asteroid*> mAsteroids;
 };
