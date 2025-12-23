@@ -1,5 +1,12 @@
 #include "Game.h"
 
+#include <algorithm>
+#include "Actor.h"
+#include "BGSpriteComponent.h"
+#include "SDL/SDL_image.h"
+#include "Ship.h"
+#include "SpriteComponent.h"
+
 const int thickness = 15;
 const float paddleH = 100.0f;
 
@@ -7,12 +14,9 @@ Game::Game()
 	: mWindow(nullptr)
 	, mRenderer(nullptr)
 	, mIsRunning(true)
+	, mUpdatingActors(false)
 	, mTicksCount(0)
 {
-	mPaddleDir = 0;
-	mPaddlePos = { 10.0f, 768.0f / 2.0f };
-	mBallPos = { 1024.0f / 2.0f, 768.0f / 2.0f };
-	mBallVel = { -200.0f, 235.0f };
 }
 
 bool Game::Initialize()
@@ -26,7 +30,7 @@ bool Game::Initialize()
 
 	// Create an SDL Window
 	mWindow = SDL_CreateWindow(
-		"Game Programming in C++ (Chapter 1)", // Window title
+		"Game Programming in C++", // Window title
 		100,	// Top left x-coordinate of window
 		100,	// Top left y-coordinate of window
 		1024,	// Width of window
@@ -52,6 +56,16 @@ bool Game::Initialize()
 		return false;
 	}
 
+	if (IMG_Init(IMG_INIT_PNG) == 0)
+	{
+		SDL_Log("Unable to initialize SDL_image: %s", SDL_GetError());
+		return false;
+	}
+
+	LoadData();
+
+	mTicksCount = SDL_GetTicks();
+
 	return true;
 }
 
@@ -67,9 +81,135 @@ void Game::RunLoop()
 
 void Game::Shutdown()
 {
+	UnloadData();
+	IMG_Quit();
 	SDL_DestroyRenderer(mRenderer);
 	SDL_DestroyWindow(mWindow);
 	SDL_Quit();
+}
+
+void Game::AddActor(Actor* actor)
+{
+	if (mUpdatingActors)
+	{
+		mPendingActors.emplace_back(actor);
+	}
+	else
+	{
+		mActors.emplace_back(actor);
+	}
+}
+
+void Game::RemoveActor(Actor* actor)
+{
+	auto iter = std::find(mPendingActors.begin(), mPendingActors.end(), actor);
+	if (iter != mPendingActors.end())
+	{
+		std::iter_swap(iter, mPendingActors.end() - 1);
+		mPendingActors.pop_back();
+	}
+
+	iter = std::find(mActors.begin(), mActors.end(), actor);
+	if (iter != mActors.end())
+	{
+		std::iter_swap(iter, mActors.end() - 1);
+		mActors.pop_back();
+	}
+}
+
+void Game::AddSprite(SpriteComponent* sprite)
+{
+	int myDrawOrder = sprite->GetDrawOrder();
+	
+	auto iter = mSprites.begin();
+	for (; iter != mSprites.end(); ++iter)
+	{
+		if (myDrawOrder < (*iter)->GetDrawOrder())
+		{
+			break;
+		}
+	}
+
+	mSprites.insert(iter, sprite);
+}
+
+void Game::RemoveSprite(SpriteComponent* sprite)
+{
+	auto iter = std::find(mSprites.begin(), mSprites.end(), sprite);
+	mSprites.erase(iter);
+}
+
+SDL_Texture* Game::GetTexture(const std::string& fileName)
+{
+	auto iter = mTextures.find(fileName);
+	if (iter != mTextures.end())
+	{
+		return iter->second;
+	}
+
+	SDL_Surface* surf = IMG_Load(fileName.c_str());
+	if (!surf)
+	{
+		SDL_Log("Failed to load texture file %s", fileName.c_str());
+		return nullptr;
+	}
+
+	SDL_Texture* tex = SDL_CreateTextureFromSurface(mRenderer, surf);
+	SDL_FreeSurface(surf);
+	if (!tex)
+	{
+		SDL_Log("Failed to convert surface to texture for %s", fileName.c_str());
+		return nullptr;
+	}
+
+	return tex;
+}
+
+void Game::LoadData()
+{
+	// Create player's ship
+	mShip = new Ship(this);
+	mShip->SetPosition(Vector2(100.0f, 384.0f));
+	mShip->SetScale(1.5f);
+
+	// Create actor for the background (this doesn't need a subclass)
+	Actor* temp = new Actor(this);
+	temp->SetPosition(Vector2(512.0f, 384.0f));
+	// Create the "far back" background
+	BGSpriteComponent* bg = new BGSpriteComponent(temp);
+	bg->SetScreenSize(Vector2(1024.0f, 768.0f));
+	std::vector<SDL_Texture*> bgtexs = {
+		GetTexture("Assets/Farback01.png"),
+		GetTexture("Assets/Farback02.png")
+	};
+	bg->SetBGTextures(bgtexs);
+	bg->SetScrollSpeed(-100.0f);
+	// Create the closer background
+	bg = new BGSpriteComponent(temp, 50);
+	bg->SetScreenSize(Vector2(1024.0f, 768.0f));
+	bgtexs = {
+		GetTexture("Assets/Stars.png"),
+		GetTexture("Assets/Stars.png")
+	};
+	bg->SetBGTextures(bgtexs);
+	bg->SetScrollSpeed(-200.0f);
+}
+
+void Game::UnloadData()
+{
+	// Delete actors
+	// Because ~Actor calls RemoveActor, have to use a different style loop
+	while (!mActors.empty())
+	{
+		delete mActors.back();
+	}
+
+	// Destroy textures
+	for (auto i : mTextures)
+	{
+		SDL_DestroyTexture(i.second);
+	}
+	mTextures.clear();
 }
 
 void Game::ProcessInput()
@@ -85,21 +225,13 @@ void Game::ProcessInput()
 		}
 	}
 
-	mPaddleDir = 0;
-
 	const Uint8* state = SDL_GetKeyboardState(NULL);
 	if (state[SDL_SCANCODE_ESCAPE]) 
 	{
 		mIsRunning = false;
 	}
-	if (state[SDL_SCANCODE_W])
-	{
-		mPaddleDir -= 1;
-	}
-	if (state[SDL_SCANCODE_S])
-	{
-		mPaddleDir += 1;
-	}
+
+	mShip->ProcessKeyboard(state);
 }
 
 void Game::UpdateGame()
@@ -116,105 +248,44 @@ void Game::UpdateGame()
 
 	mTicksCount = SDL_GetTicks();
 
-	// Update paddle position based on direction
-	if (mPaddleDir != 0)
+	mUpdatingActors = true;
+	for (auto actor : mActors)
 	{
-		mPaddlePos.y += mPaddleDir * 300.0f * deltaTime;
-		// Make sure paddle doesn't move off screen!
-		if (mPaddlePos.y < (paddleH / 2.0f + thickness))
+		actor->Update(deltaTime);
+	}
+	mUpdatingActors = false;
+
+	for (auto pending : mPendingActors)
+	{
+		mActors.emplace_back(pending);
+	}
+	mPendingActors.clear();
+
+	std::vector<Actor*> deadActors;
+	for (auto actor : mActors)
+	{
+		if (actor->GetState() == Actor::EDead)
 		{
-			mPaddlePos.y = paddleH / 2.0f + thickness;
-		}
-		else if (mPaddlePos.y > (768.0f - paddleH / 2.0f - thickness))
-		{
-			mPaddlePos.y = 768.0f - paddleH / 2.0f - thickness;
+			deadActors.emplace_back(actor);
 		}
 	}
 
-	// Update ball position based on ball velocity
-	mBallPos.x += mBallVel.x * deltaTime;
-	mBallPos.y += mBallVel.y * deltaTime;
-
-	float diff = mPaddlePos.y - mBallPos.y;
-	diff = (diff > 0.0f) ? diff : -diff;
-	if (diff <= paddleH / 2.0f
-	&& mBallPos.x <= 25.0f
-	&& mBallPos.x >= 20.0f
-	&& mBallVel.x < 0.0f)
+	for (auto actor : deadActors)
 	{
-		mBallVel.x *= -1.0f;
-	}
-	else if (mBallPos.x <= 0.0f)
-	{
-		mIsRunning = false;
-	}
-	else if (mBallPos.x >= (1024.0f - thickness) && mBallVel.x > 0.0f)
-	{
-		mBallVel.x *= -1.0f;
-	}
-
-	if (mBallPos.y <= thickness && mBallVel.y < 0.0f)
-	{
-		mBallVel.y *= -1;
-	}
-	else if (mBallPos.y >= (768 - thickness) && mBallVel.y > 0.0f)
-	{
-		mBallVel.y *= -1;
+		delete actor;
 	}
 }
 
 void Game::GenerateOutput()
 {
 	// Set Back Buffer
-	SDL_SetRenderDrawColor(
-		mRenderer,
-		0,		// R
-		0,		// G 
-		255,	// B
-		255		// A
-	);
+	SDL_SetRenderDrawColor(mRenderer, 0, 0, 0, 255);
 	SDL_RenderClear(mRenderer);
 
-	// Draw Walls
-	SDL_SetRenderDrawColor(mRenderer, 255, 255, 255, 255);
-
-	// Draw top wall
-	SDL_Rect wall{
-		0,			// Top left x
-		0,			// Top left y
-		1024,		// Width
-		thickness	// Height
-	};
-	SDL_RenderFillRect(mRenderer, &wall);
-
-	// Draw bottom wall
-	wall.y = 768 - thickness;
-	SDL_RenderFillRect(mRenderer, &wall);
-
-	// Draw right wall
-	wall.x = 1024 - thickness;
-	wall.y = 0;
-	wall.w = thickness;
-	wall.h = 1024;
-	SDL_RenderFillRect(mRenderer, &wall);
-
-	// Draw paddle
-	SDL_Rect paddle{
-		static_cast<int>(mPaddlePos.x),
-		static_cast<int>(mPaddlePos.y - paddleH / 2),
-		thickness,
-		static_cast<int>(paddleH)
-	};
-	SDL_RenderFillRect(mRenderer, &paddle);
-
-	// Draw ball
-	SDL_Rect ball{
-		static_cast<int>(mBallPos.x - thickness / 2),
-		static_cast<int>(mBallPos.y - thickness / 2),
-		thickness,
-		thickness
-	};
-	SDL_RenderFillRect(mRenderer, &ball);
+	for (auto sprite : mSprites)
+	{
+		sprite->Draw(mRenderer);
+	}
 
 	SDL_RenderPresent(mRenderer);
 }
