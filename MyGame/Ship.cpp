@@ -2,6 +2,7 @@
 
 #include "AnimSpriteComponent.h"
 #include "Game.h"
+#include "Renderer.h"
 #include "Texture.h"
 
 Ship::Ship(Game* game)
@@ -11,10 +12,10 @@ Ship::Ship(Game* game)
 {
 	AnimSpriteComponent* asc = new AnimSpriteComponent(this);
 	std::vector<Texture*> anims = {
-		game->GetTexture("Assets/Ship01.png"),
-		game->GetTexture("Assets/Ship02.png"),
-		game->GetTexture("Assets/Ship03.png"),
-		game->GetTexture("Assets/Ship04.png"),
+		game->GetRenderer()->GetTexture("Assets/Ship01.png"),
+		game->GetRenderer()->GetTexture("Assets/Ship02.png"),
+		game->GetRenderer()->GetTexture("Assets/Ship03.png"),
+		game->GetRenderer()->GetTexture("Assets/Ship04.png"),
 	};
 	asc->SetAnimTextures(anims);
 }
@@ -23,7 +24,7 @@ void Ship::UpdateActor(float deltaTime)
 {
 	Actor::UpdateActor(deltaTime);
 
-	Vector2 pos = GetPosition();
+	Vector3 pos = GetPosition();
 	pos.x += mRightSpeed * deltaTime;
 	pos.y += mDownSpeed * deltaTime;
 	

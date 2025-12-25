@@ -3,6 +3,7 @@
 #include "Game.h"
 #include "InputComponent.h"
 #include "Laser.h"
+#include "Renderer.h"
 #include "SpriteComponent.h"
 #include "Texture.h"
 
@@ -12,7 +13,7 @@ Ship2::Ship2(Game* game)
 {
 	// Create a sprite component
 	SpriteComponent* sc = new SpriteComponent(this, 150);
-	sc->SetTexture(game->GetTexture("Assets/Ship.png"));
+	sc->SetTexture(game->GetRenderer()->GetTexture("Assets/Ship.png"));
 
 	// Create an input component and set keys/speed
 	InputComponent* ic = new InputComponent(this);
