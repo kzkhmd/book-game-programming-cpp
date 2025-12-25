@@ -1,5 +1,6 @@
 #include "AnimSpriteComponent.h"
 #include "Math.h"
+#include "Texture.h"
 
 AnimSpriteComponent::AnimSpriteComponent(Actor* owner, int drawOrder)
 	: SpriteComponent(owner, drawOrder)
@@ -25,7 +26,7 @@ void AnimSpriteComponent::Update(float deltaTime)
 	}
 }
 
-void AnimSpriteComponent::SetAnimTextures(const std::vector<SDL_Texture*>& textures)
+void AnimSpriteComponent::SetAnimTextures(const std::vector<Texture*>& textures)
 {
 	mAnimTextures = textures;
 	if (mAnimTextures.size() > 0)

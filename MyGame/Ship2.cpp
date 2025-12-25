@@ -4,6 +4,7 @@
 #include "InputComponent.h"
 #include "Laser.h"
 #include "SpriteComponent.h"
+#include "Texture.h"
 
 Ship2::Ship2(Game* game)
 	: Actor(game)

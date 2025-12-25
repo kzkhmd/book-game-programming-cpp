@@ -3,13 +3,15 @@
 #include "Actor.h"
 #include "Game.h"
 #include "Math.h"
+#include "Shader.h"
+#include "Texture.h"
 
 SpriteComponent::SpriteComponent(Actor* owner, int drawOrder)
 	: Component(owner)
 	, mTexture(nullptr)
 	, mDrawOrder(drawOrder)
-	, mTexWidth(0)
-	, mTexHeight(0)
+	, mTexWidth(30)
+	, mTexHeight(30)
 {
 	mOwner->GetGame()->AddSprite(this);
 }
@@ -19,30 +21,24 @@ SpriteComponent::~SpriteComponent()
 	mOwner->GetGame()->RemoveSprite(this);
 }
 
-void SpriteComponent::Draw(SDL_Renderer* renderer)
+void SpriteComponent::Draw(Shader* shader)
 {
-	if (mTexture)
-	{
-		SDL_Rect r;
-		// Scale the width/height by owner's scale
-		r.w = static_cast<int>(mTexWidth * mOwner->GetScale());
-		r.h = static_cast<int>(mTexHeight * mOwner->GetScale());
-		// Center the rectangle around the position of the owner
-		r.x = static_cast<int>(mOwner->GetPosition().x - r.w / 2);
-		r.y = static_cast<int>(mOwner->GetPosition().y - r.h / 2);
+	Matrix4 scaleMat = Matrix4::CreateScale(
+		static_cast<float>(mTexWidth),
+		static_cast<float>(mTexHeight),
+		1.0f
+	);
+	Matrix4 world = scaleMat * mOwner->GetWorldTransform();
+	
+	shader->SetMatrixUniform("uWorldTransform", world);
+	mTexture->SetActive();
 
-		SDL_RenderCopyEx(renderer,
-			mTexture,
-			nullptr,
-			&r,
-			-Math::ToDegrees(mOwner->GetRotation()),
-			nullptr,
-			SDL_FLIP_NONE);
-	}
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 }
 
-void SpriteComponent::SetTexture(SDL_Texture* texture)
+void SpriteComponent::SetTexture(Texture* texture)
 {
 	mTexture = texture;
-	SDL_QueryTexture(texture, nullptr, nullptr, &mTexWidth, &mTexHeight);
+	mTexWidth = texture->GetWidth();
+	mTexHeight = texture->GetHeight();
 }

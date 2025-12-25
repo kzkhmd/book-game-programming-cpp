@@ -1,6 +1,8 @@
 #include "BGSpriteComponent.h"
 
 #include "Actor.h"
+#include "Shader.h"
+#include "Texture.h"
 
 BGSpriteComponent::BGSpriteComponent(class Actor* owner, int drawOrder)
 	:SpriteComponent(owner, drawOrder)
@@ -23,28 +25,7 @@ void BGSpriteComponent::Update(float deltaTime)
 	}
 }
 
-void BGSpriteComponent::Draw(SDL_Renderer* renderer)
-{
-	for (auto& bg : mBGTextures)
-	{
-		SDL_Rect r;
-		// Assume screen size dimensions
-		r.w = static_cast<int>(mScreenSize.x);
-		r.h = static_cast<int>(mScreenSize.y);
-		// Center the rectangle around the position of the owner
-		r.x = static_cast<int>(mOwner->GetPosition().x - r.w / 2 + bg.mOffset.x);
-		r.y = static_cast<int>(mOwner->GetPosition().y - r.h / 2 + bg.mOffset.y);
-
-		// Draw this background
-		SDL_RenderCopy(renderer,
-			bg.mTexture,
-			nullptr,
-			&r
-		);
-	}
-}
-
-void BGSpriteComponent::SetBGTextures(const std::vector<SDL_Texture*>& textures)
+void BGSpriteComponent::SetBGTextures(const std::vector<Texture*>& textures)
 {
 	int count = 0;
 	for (auto tex : textures)

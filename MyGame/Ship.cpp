@@ -2,6 +2,7 @@
 
 #include "AnimSpriteComponent.h"
 #include "Game.h"
+#include "Texture.h"
 
 Ship::Ship(Game* game)
 	: Actor(game)
@@ -9,7 +10,7 @@ Ship::Ship(Game* game)
 	, mDownSpeed(0.0f)
 {
 	AnimSpriteComponent* asc = new AnimSpriteComponent(this);
-	std::vector<SDL_Texture*> anims = {
+	std::vector<Texture*> anims = {
 		game->GetTexture("Assets/Ship01.png"),
 		game->GetTexture("Assets/Ship02.png"),
 		game->GetTexture("Assets/Ship03.png"),
