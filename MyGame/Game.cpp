@@ -65,10 +65,6 @@ void Game::RunLoop()
 void Game::Shutdown()
 {
 	UnloadData();
-	if (mRenderer)
-	{
-		mRenderer->Shutdown();
-	}
 	SDL_Quit();
 }
 
